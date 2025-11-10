@@ -1,0 +1,315 @@
+-- LocalScript: TPAll_FPSKiller_AntiLag.lua
+-- Uso: StarterPlayer > StarterPlayerScripts
+-- Observação: NÃO faz nada que roube/comprometa servidores. Teleporta apenas se jogador tiver "Lampada do Yin Yang".
+-- Ajuste a lista FPS_ITEM_NAMES com os nomes das ferramentas que existam no seu jogo / inventario.
+
+local Players = game:GetService("Players")
+local Lighting = game:GetService("Lighting")
+local Workspace = game:GetService("Workspace")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local playerGui = LocalPlayer:WaitForChild("PlayerGui")
+
+-- CONFIG: nomes de ferramentas que o FPSKiller deve tentar equipar (personalize)
+local FPS_ITEM_NAMES = {
+    "CapaLaser",      -- exemplo: nome da ferramenta capa laser
+    "CapaNormal",     -- exemplo: nome da capa normal
+    "MaoDaLoja1",     -- exemplo: mãos/itens da loja (devem existir no inventario)
+    "MaoDaLoja2",
+}
+
+-- UI
+if playerGui:FindFirstChild("TPAllGui_v2") then
+    playerGui.TPAllGui_v2:Destroy()
+end
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "TPAllGui_v2"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+local openButton = Instance.new("TextButton")
+openButton.Name = "TPAllButton"
+openButton.Size = UDim2.new(0, 140, 0, 40)
+openButton.Position = UDim2.new(0, 20, 0, 80)
+openButton.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+openButton.BorderSizePixel = 0
+openButton.Text = "TP/All"
+openButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+openButton.Font = Enum.Font.SourceSansBold
+openButton.TextSize = 22
+openButton.Parent = screenGui
+
+local menu = Instance.new("Frame")
+menu.Name = "TPAllMenu"
+menu.Size = UDim2.new(0, 300, 0, 300)
+menu.Position = UDim2.new(0, 20, 0, 130)
+menu.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+menu.BorderSizePixel = 0
+menu.Visible = false
+menu.Active = true
+menu.Draggable = true
+menu.Parent = screenGui
+
+local function makeButton(yPos, text)
+    local b = Instance.new("TextButton")
+    b.Size = UDim2.new(1, -20, 0, 40)
+    b.Position = UDim2.new(0, 10, 0, yPos)
+    b.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    b.BorderSizePixel = 1
+    b.BorderColor3 = Color3.fromRGB(40,40,40)
+    b.Text = text
+    b.TextColor3 = Color3.fromRGB(255,255,255)
+    b.Font = Enum.Font.SourceSansBold
+    b.TextSize = 18
+    b.Parent = menu
+    return b
+end
+
+local salvarBtn = makeButton(10, "Salvar Posicao")
+local tpBtn = makeButton(60, "Teleportar (exige Lampada do Yin Yang)")
+local antiLagBtn = makeButton(110, "Ativar Anti Lag (reforçado)")
+local fpsKillerBtn = makeButton(160, "FPSKiller: Desativar") -- texto inicial será ajustado
+local creditLabel = Instance.new("TextLabel")
+creditLabel.Size = UDim2.new(1, -20, 0, 70)
+creditLabel.Position = UDim2.new(0, 10, 0, 210)
+creditLabel.BackgroundTransparency = 1
+creditLabel.Text = "Agradeca ao 7n por estar passando gratis"
+creditLabel.TextColor3 = Color3.fromRGB(255,255,255)
+creditLabel.Font = Enum.Font.SourceSansBold
+creditLabel.TextWrapped = true
+creditLabel.TextSize = 16
+creditLabel.Parent = menu
+
+-- Helper notify
+local function notify(title, text, duration)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title or "Aviso";
+            Text = text or "";
+            Duration = duration or 3;
+        })
+    end)
+end
+
+-- Saved position
+local savedPosition = nil
+
+salvarBtn.MouseButton1Click:Connect(function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        savedPosition = LocalPlayer.Character.HumanoidRootPart.Position
+        notify("Lipe Script", "Posicao salva com sucesso!", 3)
+    else
+        notify("Erro", "Personagem nao encontrado!", 3)
+    end
+end)
+
+-- checar existencia de Lampada do Yin Yang no Backpack/Character/StarterGear
+local function hasLampada()
+    -- verificar backpack
+    for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if string.lower(item.Name) == "lampada do yin yang" or string.lower(item.Name) == "lampadadoyinyang" then
+            return true
+        end
+    end
+    -- verificar character
+    if LocalPlayer.Character then
+        for _, item in ipairs(LocalPlayer.Character:GetChildren()) do
+            if string.lower(item.Name) == "lampada do yin yang" or string.lower(item.Name) == "lampadadoyinyang" then
+                return true
+            end
+        end
+    end
+    -- opcional: verificar StarterGear (caso o jogo tenha ferramentas lá)
+    local starter = LocalPlayer:FindFirstChildOfClass("StarterGear")
+    if starter then
+        for _, item in ipairs(starter:GetChildren()) do
+            if string.lower(item.Name) == "lampada do yin yang" or string.lower(item.Name) == "lampadadoyinyang" then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+tpBtn.MouseButton1Click:Connect(function()
+    if not savedPosition then
+        notify("Erro", "Nenhuma posicao salva ainda!", 3)
+        return
+    end
+    if not hasLampada() then
+        notify("Erro", "Voce precisa da Lampada do Yin Yang para teleportar!", 4)
+        return
+    end
+    local hrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        hrp.CFrame = CFrame.new(savedPosition)
+        notify("Lipe Script", "Teleportado com sucesso!", 3)
+    else
+        notify("Erro", "Nao foi possivel teleportar!", 3)
+    end
+end)
+
+-- Anti Lag reforçado (apenas otimizações locais; nao afeta outros jogadores)
+local antiLagApplied = false
+antiLagBtn.MouseButton1Click:Connect(function()
+    if antiLagApplied then
+        notify("Anti Lag", "Anti Lag ja ativado.", 2)
+        return
+    end
+    antiLagApplied = true
+    notify("Lipe Script", "Ativando Anti Lag reforcado...", 2)
+
+    -- Remover efeitos no Lighting (desabilitar ou reduzir)
+    pcall(function()
+        Lighting.GlobalShadows = false
+        Lighting.FogEnd = 1e6
+        Lighting.Brightness = math.max(0.3, (Lighting.Brightness or 1) * 0.5)
+        for _, e in ipairs(Lighting:GetChildren()) do
+            if e:IsA("BloomEffect") or e:IsA("BlurEffect") or e:IsA("ColorCorrectionEffect")
+            or e:IsA("SunRaysEffect") or e:IsA("DepthOfFieldEffect") or e:IsA("Atmosphere")
+            or e:IsA("Sky") then
+                pcall(function() e.Enabled = false end)
+            end
+        end
+    end)
+
+    -- Desligar partículas / trails em workspace e personagem
+    local function disableEmitters(root)
+        for _, obj in ipairs(root:GetDescendants()) do
+            if obj:IsA("ParticleEmitter") or obj:IsA("Trail") or obj:IsA("Beam") or obj:IsA("Sparkles") or obj:IsA("Smoke") or obj:IsA("Fire") then
+                pcall(function() obj.Enabled = false end)
+            end
+            if obj:IsA("Decal") or obj:IsA("Texture") then
+                pcall(function() obj.Transparency = 1 end)
+            end
+            if obj:IsA("Sound") then
+                pcall(function() obj.Volume = 0 end)
+            end
+            if obj:IsA("PointLight") or obj:IsA("SpotLight") or obj:IsA("SurfaceLight") then
+                pcall(function() obj.Enabled = false end)
+            end
+        end
+    end
+
+    pcall(function() disableEmitters(Workspace) end)
+    if LocalPlayer.Character then
+        pcall(function() disableEmitters(LocalPlayer.Character) end)
+    end
+
+    -- Reduz qualidade de render local (pode nao funcionar em todos os ambientes)
+    pcall(function()
+        settings().Rendering.QualityLevel = Enum.QualityLevel.Level01
+    end)
+
+    notify("Lipe Script", "Anti Lag reforcado ativado!", 3)
+end)
+
+-- FPSKiller: equipa itens da lista repetidamente para forcar gasto de processamento do cliente
+local fpsKillerActive = false
+local fpsLoopConnection = nil
+
+-- Função para tentar equipar um item pelo nome (procura em Backpack, StarterGear, Character)
+local function tryEquipByName(name)
+    if not name or name == "" then return false end
+    local lowerName = string.lower(name)
+    -- procurar no Character (se já equipado)
+    if LocalPlayer.Character then
+        for _, obj in ipairs(LocalPlayer.Character:GetChildren()) do
+            if obj:IsA("Tool") and string.lower(obj.Name) == lowerName then
+                -- já equipado
+                return true
+            end
+        end
+    end
+    -- procurar no Backpack
+    for _, obj in ipairs(LocalPlayer.Backpack:GetChildren()) do
+        if obj:IsA("Tool") and string.lower(obj.Name) == lowerName then
+            pcall(function()
+                LocalPlayer.Character.Humanoid:EquipTool(obj)
+            end)
+            return true
+        end
+    end
+    -- procurar no StarterGear (alguns jogos movem StarterGear para Backpack no spawn)
+    local starter = LocalPlayer:FindFirstChildOfClass("StarterGear")
+    if starter then
+        for _, obj in ipairs(starter:GetChildren()) do
+            if obj:IsA("Tool") and string.lower(obj.Name) == lowerName then
+                pcall(function()
+                    -- clonar para Backpack para equipar (só clona, nao compra nada)
+                    local clone = obj:Clone()
+                    clone.Parent = LocalPlayer.Backpack
+                    LocalPlayer.Character.Humanoid:EquipTool(clone)
+                end)
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function unequipAllListed()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+        local humanoid = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        pcall(function() humanoid:UnequipTools() end)
+    end
+end
+
+local function startFPSKiller()
+    if fpsKillerActive then return end
+    fpsKillerActive = true
+    fpsKillerBtn.Text = "FPSKiller: Ativado"
+    notify("FPSKiller", "Ativado Com Sucesso", 3)
+
+    -- loop que tenta equipar cada item da lista a cada 0.8s (ajuste se quiser)
+    fpsLoopConnection = RunService.Heartbeat:Connect(function(dt)
+        -- apenas executar a cada ~0.8 segundos
+        -- usamos um contador para espaçar iterações
+    end)
+
+    -- Implementar loop com spawn + wait para simplicidade e evitar sobrecarregar
+    spawn(function()
+        while fpsKillerActive do
+            for _, name in ipairs(FPS_ITEM_NAMES) do
+                tryEquipByName(name)
+                wait(0.6)
+            end
+            -- logo após tentar equipar tudo, tenta unequip para forçar troca
+            unequipAllListed()
+            wait(0.6)
+        end
+    end)
+end
+
+local function stopFPSKiller()
+    if not fpsKillerActive then return end
+    fpsKillerActive = false
+    fpsKillerBtn.Text = "FPSKiller: Desativar"
+    notify("FPSKiller", "Desativado Com Sucesso", 3)
+    -- desconectar loop se existir
+    if fpsLoopConnection then
+        fpsLoopConnection:Disconnect()
+        fpsLoopConnection = nil
+    end
+    -- tentar unequipar
+    unequipAllListed()
+end
+
+-- Toggle FPSKiller ao clicar
+fpsKillerBtn.MouseButton1Click:Connect(function()
+    if fpsKillerActive then
+        stopFPSKiller()
+    else
+        startFPSKiller()
+    end
+end)
+
+-- Abrir / Fechar menu
+openButton.MouseButton1Click:Connect(function()
+    menu.Visible = not menu.Visible
+end)
+
+-- Ajustar texto inicial do botão FPS
+fpsKillerBtn.Text = "FPSKiller: Desativar"
